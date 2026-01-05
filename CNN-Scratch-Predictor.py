@@ -112,7 +112,7 @@ Convutional_Layer = Convolutional_Layer
 with open("cnn_model_trained.pkl", "rb") as f:
     network = pickle.load(f)
 
-st.success("Model loaded successfully ✅")
+st.success("Model loaded successfully !")
 st.title("Scratch CNN – Draw & Predict")
 
 canvas = st_canvas(
@@ -146,4 +146,5 @@ if submit and canvas.image_data is not None:
 
     st.subheader("Prediction")
     st.write(f"Class: {class_label[pred]}")
+
 
