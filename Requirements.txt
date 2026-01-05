@@ -4,4 +4,4 @@ scipy
 pillow
 torch
 torchvision
-opencv-python-headless
+streamlit-drawable-canvas
