@@ -1,10 +1,11 @@
 import streamlit as st
 import numpy as np
-import cv2
 import pickle
 from scipy import signal
+from PIL import Image
 
 from streamlit_drawable_canvas import st_canvas
+
 def sigmoid(x):
         return 1/(1+np.exp(-x))
 def sigmoid_der(x):
@@ -87,11 +88,15 @@ class Activatoo(Layer):
 class Sigmoid(Activatoo):
     def __init__(self):
         super().__init__(sigmoid, sigmoid_der)
+
 Convutional_Layer = Convolutional_Layer
+
 with open("cnn_model_trained.pkl", "rb") as f:
     network = pickle.load(f)
+
 st.success("Model loaded successfully ✅")
 st.title("Scratch CNN – Draw & Predict")
+
 canvas = st_canvas(
     stroke_width=9,
     stroke_color="white",
@@ -107,8 +112,8 @@ submit = st.button("Submit / Predict")
 if submit and canvas.image_data is not None:
     img = canvas.image_data[:, :, :3].astype(np.uint8)
 
-    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-    small = cv2.resize(gray, (28, 28), interpolation=cv2.INTER_AREA)
+    pil = Image.fromarray(img).convert("L").resize((28,28))
+    small = np.array(pil)
 
     x = small / 255.0
     x = x.reshape(1, 28, 28)
@@ -116,8 +121,10 @@ if submit and canvas.image_data is not None:
     out = x
     for layer in network:
         out = layer.forward(out)
+
     class_label = ['A Top','A Bottom']
     prob = out.item()
     pred = int(prob > 0.5)
+
     st.subheader("Prediction")
     st.write(f"Class: {class_label[pred]}")
