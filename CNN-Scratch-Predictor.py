@@ -1,10 +1,28 @@
 import streamlit as st
 import numpy as np
 import pickle
-from scipy import signal
 from PIL import Image
-
 from streamlit_drawable_canvas import st_canvas
+def correlate2d(x, k):
+    h, w = k.shape
+    out_h = x.shape[0] - h + 1
+    out_w = x.shape[1] - w + 1
+    out = np.zeros((out_h, out_w))
+    for i in range(out_h):
+        for j in range(out_w):
+            out[i, j] = np.sum(x[i:i+h, j:j+w] * k)
+    return out
+
+def convolve2d(x, k):
+    k = np.flip(np.flip(k, 0), 1)
+    h, w = k.shape
+    pad_h, pad_w = h - 1, w - 1
+    x_padded = np.pad(x, ((pad_h, pad_h), (pad_w, pad_w)))
+    out = np.zeros(x.shape)
+    for i in range(out.shape[0]):
+        for j in range(out.shape[1]):
+            out[i, j] = np.sum(x_padded[i:i+h, j:j+w] * k)
+    return out
 
 def sigmoid(x):
         return 1/(1+np.exp(-x))
@@ -48,15 +66,15 @@ class Convolutional_Layer(Layer):
         self.out = np.copy(self.biases)
         for i in range(self.depth):
             for j in range(self.inp_depth):
-                self.out[i] += signal.correlate2d(self.inp[j], self.kernels[i,j], "valid")
+                self.out[i] += correlate2d(self.inp[j], self.kernels[i,j])
         return self.out
     def backward(self, out_grad, lr):
         kernels_grad = np.zeros(self.kernels_shape)
         inp_grad = np.zeros(self.inp_shape)
         for i in range(self.depth):
             for j in range(self.inp_depth):
-                kernels_grad[i,j] = signal.correlate2d(self.inp[j], out_grad[i], "valid")
-                inp_grad[j] += signal.convolve2d(out_grad[i], self.kernels[i,j], "full")
+                kernels_grad[i,j] = correlate2d(self.inp[j], out_grad[i])
+                inp_grad[j] += convolve2d(out_grad[i], self.kernels[i,j])
         self.kernels -= lr*kernels_grad
         self.biases -= lr*out_grad
         return inp_grad
@@ -128,3 +146,4 @@ if submit and canvas.image_data is not None:
 
     st.subheader("Prediction")
     st.write(f"Class: {class_label[pred]}")
+
