@@ -1,29 +1,10 @@
 import streamlit as st
 import numpy as np
+import cv2
 import pickle
-from PIL import Image
+from scipy import signal
+
 from streamlit_drawable_canvas import st_canvas
-def correlate2d(x, k):
-    h, w = k.shape
-    out_h = x.shape[0] - h + 1
-    out_w = x.shape[1] - w + 1
-    out = np.zeros((out_h, out_w))
-    for i in range(out_h):
-        for j in range(out_w):
-            out[i, j] = np.sum(x[i:i+h, j:j+w] * k)
-    return out
-
-def convolve2d(x, k):
-    k = np.flip(np.flip(k, 0), 1)
-    h, w = k.shape
-    pad_h, pad_w = h - 1, w - 1
-    x_padded = np.pad(x, ((pad_h, pad_h), (pad_w, pad_w)))
-    out = np.zeros(x.shape)
-    for i in range(out.shape[0]):
-        for j in range(out.shape[1]):
-            out[i, j] = np.sum(x_padded[i:i+h, j:j+w] * k)
-    return out
-
 def sigmoid(x):
         return 1/(1+np.exp(-x))
 def sigmoid_der(x):
@@ -66,15 +47,15 @@ class Convolutional_Layer(Layer):
         self.out = np.copy(self.biases)
         for i in range(self.depth):
             for j in range(self.inp_depth):
-                self.out[i] += correlate2d(self.inp[j], self.kernels[i,j])
+                self.out[i] += signal.correlate2d(self.inp[j], self.kernels[i,j], "valid")
         return self.out
     def backward(self, out_grad, lr):
         kernels_grad = np.zeros(self.kernels_shape)
         inp_grad = np.zeros(self.inp_shape)
         for i in range(self.depth):
             for j in range(self.inp_depth):
-                kernels_grad[i,j] = correlate2d(self.inp[j], out_grad[i])
-                inp_grad[j] += convolve2d(out_grad[i], self.kernels[i,j])
+                kernels_grad[i,j] = signal.correlate2d(self.inp[j], out_grad[i], "valid")
+                inp_grad[j] += signal.convolve2d(out_grad[i], self.kernels[i,j], "full")
         self.kernels -= lr*kernels_grad
         self.biases -= lr*out_grad
         return inp_grad
@@ -106,17 +87,13 @@ class Activatoo(Layer):
 class Sigmoid(Activatoo):
     def __init__(self):
         super().__init__(sigmoid, sigmoid_der)
-
 Convutional_Layer = Convolutional_Layer
-
 with open("cnn_model_trained.pkl", "rb") as f:
     network = pickle.load(f)
-
-st.success("Model loaded successfully !")
+st.success("Model loaded successfully ✅")
 st.title("Scratch CNN – Draw & Predict")
-
 canvas = st_canvas(
-    stroke_width=9,
+    stroke_width=15,
     stroke_color="white",
     background_color="black",
     width=280,
@@ -124,27 +101,22 @@ canvas = st_canvas(
     drawing_mode="freedraw",
     key="canvas",
 )
-
 submit = st.button("Submit / Predict")
-
 if submit and canvas.image_data is not None:
     img = canvas.image_data[:, :, :3].astype(np.uint8)
-
-    pil = Image.fromarray(img).convert("L").resize((28,28))
-    small = np.array(pil)
-
+    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    gray = cv2.GaussianBlur(gray, (5, 5), sigmaX=1.0)
+    kernel = np.ones((3, 3), np.uint8)
+    gray = cv2.dilate(gray, kernel, iterations=1)
+    small = cv2.resize(gray, (28, 28), interpolation=cv2.INTER_AREA)
+    st.image(small, caption="28x28 image seen by CNN", clamp=True)
     x = small / 255.0
     x = x.reshape(1, 28, 28)
-
     out = x
     for layer in network:
         out = layer.forward(out)
-
     class_label = ['A Top','A Bottom']
     prob = out.item()
     pred = int(prob > 0.5)
-
     st.subheader("Prediction")
     st.write(f"Class: {class_label[pred]}")
-
-
