@@ -1,6 +1,5 @@
 streamlit
 numpy
-pillow
-torch
-torchvision
+opencv-python-headless
+scipy
 streamlit-drawable-canvas
