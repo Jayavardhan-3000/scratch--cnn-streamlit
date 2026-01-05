@@ -1,5 +1,4 @@
 streamlit>=1.30
 numpy>=1.24,<2.0
 opencv-python-headless>=4.8
-scipy>=1.10,<1.12
 streamlit-drawable-canvas>=0.9.3
